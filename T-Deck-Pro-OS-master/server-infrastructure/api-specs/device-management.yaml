@@ -1,0 +1,735 @@
+openapi: 3.0.3
+info:
+  title: T-Deck-Pro Device Management API
+  description: API for managing T-Deck-Pro devices, including registration, configuration, and status monitoring
+  version: 1.0.0
+  contact:
+    name: T-Deck-Pro Team
+    email: support@tdeckpro.local
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.tdeckpro.local/api/v1
+    description: Production server
+  - url: https://staging-api.tdeckpro.local/api/v1
+    description: Staging server
+
+security:
+  - BearerAuth: []
+  - DeviceAuth: []
+
+paths:
+  /devices/register:
+    post:
+      summary: Register a new T-Deck-Pro device
+      description: Register a new device with the system and obtain device credentials
+      tags:
+        - Device Registration
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRegistration'
+            example:
+              device_id: "t-deck-pro-001"
+              device_type: "t-deck-pro"
+              hardware_version: "1.0"
+              firmware_version: "1.0.0"
+              public_key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\n-----END PUBLIC KEY-----"
+              capabilities:
+                wifi: true
+                lora: true
+                cellular: true
+                bluetooth: true
+                gps: true
+                eink_display: true
+              initial_config:
+                timezone: "UTC"
+                language: "en"
+                auto_update: true
+      responses:
+        '201':
+          description: Device registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                data:
+                  device:
+                    id: "device_uuid"
+                    device_id: "t-deck-pro-001"
+                    status: "registered"
+                    registration_code: "REG123456"
+                    created_at: "2024-01-01T12:00:00Z"
+                  initial_apps:
+                    - app_id: "meshtastic"
+                      version: "1.0.0"
+                      auto_install: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /devices/auth:
+    post:
+      summary: Authenticate device
+      description: Authenticate device using public key cryptography
+      tags:
+        - Device Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceAuth'
+            example:
+              device_id: "t-deck-pro-001"
+              challenge_response: "signed_challenge_data_in_hex"
+      responses:
+        '200':
+          description: Device authenticated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                data:
+                  access_token: "eyJhbGciOiJIUzI1NiIs..."
+                  expires_in: 86400
+                  device:
+                    id: "device_uuid"
+                    device_id: "t-deck-pro-001"
+                    status: "online"
+                    last_seen: "2024-01-01T12:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /devices:
+    get:
+      summary: List devices
+      description: Get a list of all devices for the authenticated user
+      tags:
+        - Device Management
+      parameters:
+        - name: status
+          in: query
+          description: Filter by device status
+          schema:
+            type: string
+            enum: [online, offline, maintenance, error]
+        - name: device_type
+          in: query
+          description: Filter by device type
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Number of results to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Pagination offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: sort
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [created_at, last_seen, device_id]
+            default: last_seen
+        - name: order
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: List of devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                data:
+                  devices:
+                    - id: "device_uuid"
+                      device_id: "t-deck-pro-001"
+                      status: "online"
+                      last_seen: "2024-01-01T12:00:00Z"
+                      firmware_version: "1.0.0"
+                      battery_percentage: 85
+                  pagination:
+                    total: 1
+                    limit: 50
+                    offset: 0
+                    has_more: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /devices/{device_id}:
+    get:
+      summary: Get device details
+      description: Get detailed information about a specific device
+      tags:
+        - Device Management
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: Device identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                data:
+                  device:
+                    id: "device_uuid"
+                    device_id: "t-deck-pro-001"
+                    device_type: "t-deck-pro"
+                    hardware_version: "1.0"
+                    firmware_version: "1.0.0"
+                    status: "online"
+                    last_seen: "2024-01-01T12:00:00Z"
+                    location:
+                      latitude: 40.7128
+                      longitude: -74.0060
+                      accuracy: 5.0
+                      timestamp: "2024-01-01T12:00:00Z"
+                    telemetry:
+                      battery_percentage: 85
+                      temperature: 23.5
+                      signal_strength: -65
+                      memory_usage: 67.8
+                      cpu_usage: 45.2
+                    config:
+                      timezone: "UTC"
+                      language: "en"
+                      auto_update: true
+                      mesh_enabled: true
+                    installed_apps:
+                      - app_id: "meshtastic"
+                        version: "1.0.0"
+                        status: "running"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete device
+      description: Unregister and delete a device
+      tags:
+        - Device Management
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: Device identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                data:
+                  device_deleted: true
+                  cleanup_completed: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /devices/{device_id}/config:
+    put:
+      summary: Update device configuration
+      description: Update the configuration settings for a device
+      tags:
+        - Device Configuration
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: Device identifier
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceConfigUpdate'
+            example:
+              config:
+                timezone: "America/New_York"
+                language: "en"
+                auto_update: false
+                mesh_enabled: true
+                display_brightness: 80
+                sleep_timeout: 300
+                wifi_auto_connect: true
+                lora_frequency: 915.0
+                cellular_apn: "internet"
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                data:
+                  config_updated: true
+                  restart_required: false
+                  applied_at: "2024-01-01T12:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /devices/{device_id}/status:
+    post:
+      summary: Update device status
+      description: Update device status and telemetry data
+      tags:
+        - Device Status
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: Device identifier
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceStatusUpdate'
+            example:
+              status: "online"
+              telemetry:
+                battery_voltage: 3.7
+                battery_percentage: 85
+                temperature: 23.5
+                cpu_usage: 45.2
+                memory_usage: 67.8
+                signal_strength: -65
+                gps_latitude: 40.7128
+                gps_longitude: -74.0060
+                gps_accuracy: 5.0
+              running_apps: ["meshtastic", "file_manager"]
+              error_logs:
+                - level: "error"
+                  message: "Failed to connect to WiFi"
+                  timestamp: "2024-01-01T12:00:00Z"
+                  component: "wifi_manager"
+      responses:
+        '200':
+          description: Status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                success: true
+                data:
+                  status_updated: true
+                  alerts_generated: 0
+                  next_checkin: "2024-01-01T12:05:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    DeviceAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the request was successful
+        data:
+          type: object
+          description: Response data
+        error:
+          $ref: '#/components/schemas/ApiError'
+        meta:
+          $ref: '#/components/schemas/ApiMeta'
+      required:
+        - success
+
+    ApiError:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+      required:
+        - code
+        - message
+
+    ApiMeta:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+        request_id:
+          type: string
+          description: Unique request identifier
+        version:
+          type: string
+          description: API version
+      required:
+        - timestamp
+        - request_id
+        - version
+
+    DeviceRegistration:
+      type: object
+      properties:
+        device_id:
+          type: string
+          pattern: '^[a-zA-Z0-9-_]+$'
+          description: Unique device identifier
+        device_type:
+          type: string
+          enum: [t-deck-pro]
+          description: Device type
+        hardware_version:
+          type: string
+          pattern: '^\d+\.\d+$'
+          description: Hardware version
+        firmware_version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          description: Firmware version
+        public_key:
+          type: string
+          description: Device public key in PEM format
+        capabilities:
+          $ref: '#/components/schemas/DeviceCapabilities'
+        initial_config:
+          $ref: '#/components/schemas/DeviceConfig'
+      required:
+        - device_id
+        - device_type
+        - hardware_version
+        - firmware_version
+        - public_key
+
+    DeviceAuth:
+      type: object
+      properties:
+        device_id:
+          type: string
+          description: Device identifier
+        challenge_response:
+          type: string
+          description: Signed challenge response in hexadecimal format
+      required:
+        - device_id
+        - challenge_response
+
+    DeviceCapabilities:
+      type: object
+      properties:
+        wifi:
+          type: boolean
+          description: WiFi capability
+        lora:
+          type: boolean
+          description: LoRa capability
+        cellular:
+          type: boolean
+          description: Cellular capability
+        bluetooth:
+          type: boolean
+          description: Bluetooth capability
+        gps:
+          type: boolean
+          description: GPS capability
+        eink_display:
+          type: boolean
+          description: E-ink display capability
+      required:
+        - wifi
+        - lora
+        - cellular
+        - bluetooth
+        - gps
+        - eink_display
+
+    DeviceConfig:
+      type: object
+      properties:
+        timezone:
+          type: string
+          description: Device timezone
+          default: "UTC"
+        language:
+          type: string
+          description: Device language
+          default: "en"
+        auto_update:
+          type: boolean
+          description: Enable automatic updates
+          default: true
+        mesh_enabled:
+          type: boolean
+          description: Enable mesh networking
+          default: true
+        display_brightness:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Display brightness percentage
+          default: 80
+        sleep_timeout:
+          type: integer
+          minimum: 30
+          maximum: 3600
+          description: Sleep timeout in seconds
+          default: 300
+        wifi_auto_connect:
+          type: boolean
+          description: Auto-connect to known WiFi networks
+          default: true
+        lora_frequency:
+          type: number
+          minimum: 902.0
+          maximum: 928.0
+          description: LoRa frequency in MHz
+          default: 915.0
+        cellular_apn:
+          type: string
+          description: Cellular APN
+          default: "internet"
+
+    DeviceConfigUpdate:
+      type: object
+      properties:
+        config:
+          $ref: '#/components/schemas/DeviceConfig'
+      required:
+        - config
+
+    DeviceStatusUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [online, offline, maintenance, error]
+          description: Device status
+        telemetry:
+          $ref: '#/components/schemas/DeviceTelemetry'
+        running_apps:
+          type: array
+          items:
+            type: string
+          description: List of currently running applications
+        error_logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorLog'
+          description: Recent error logs
+      required:
+        - status
+
+    DeviceTelemetry:
+      type: object
+      properties:
+        battery_voltage:
+          type: number
+          description: Battery voltage in volts
+        battery_percentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Battery percentage
+        temperature:
+          type: number
+          description: Device temperature in Celsius
+        cpu_usage:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: CPU usage percentage
+        memory_usage:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Memory usage percentage
+        signal_strength:
+          type: integer
+          description: Signal strength in dBm
+        gps_latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: GPS latitude
+        gps_longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: GPS longitude
+        gps_accuracy:
+          type: number
+          minimum: 0
+          description: GPS accuracy in meters
+
+    ErrorLog:
+      type: object
+      properties:
+        level:
+          type: string
+          enum: [debug, info, warning, error, critical]
+          description: Log level
+        message:
+          type: string
+          description: Error message
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+        component:
+          type: string
+          description: Component that generated the error
+      required:
+        - level
+        - message
+        - timestamp
+        - component
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            success: false
+            error:
+              code: "VALIDATION_ERROR"
+              message: "Invalid request data"
+              details:
+                field: "device_id"
+                issue: "Required field missing"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            success: false
+            error:
+              code: "UNAUTHORIZED"
+              message: "Authentication required"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            success: false
+            error:
+              code: "DEVICE_NOT_FOUND"
+              message: "Device not found"
+
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            success: false
+            error:
+              code: "DEVICE_ALREADY_EXISTS"
+              message: "Device with this ID already exists"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+          example:
+            success: false
+            error:
+              code: "INTERNAL_ERROR"
+              message: "An internal server error occurred"
+
+tags:
+  - name: Device Registration
+    description: Device registration and initial setup
+  - name: Device Authentication
+    description: Device authentication and authorization
+  - name: Device Management
+    description: Device lifecycle management
+  - name: Device Configuration
+    description: Device configuration management
+  - name: Device Status
+    description: Device status and telemetry updates
